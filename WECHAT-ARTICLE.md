@@ -2,7 +2,7 @@
 
 > 副标题：反编译显卡固件、UEFI 里做手术、踩坑卡死 N 次之后，FP16 算力从 43 涨到 89 TFLOPS，代码已经提给上游等合并。
 
-【题图建议：GPU-Z 截图 + 跑分终端截图拼一张】
+![封面图](images/cover.png)
 
 ## 先说结果
 
@@ -13,6 +13,8 @@
 | FP16 Tensor | ~43.7 TFLOPS | **89.24 TFLOPS** |
 | BF16 Tensor | ~43.7 TFLOPS | **89.25 TFLOPS** |
 | FP32 | 14.8 TFLOPS | 14.89 TFLOPS（不变） |
+
+![跑分对比](images/perf.png)
 
 FP16/BF16 差不多正好翻倍——这不是超频，是把 NVIDIA 在驱动/固件层面对消费卡人为限制的 FP16 发射率，恢复到了它同核心专业卡的水平。
 
@@ -77,7 +79,7 @@ FP16/BF16 差不多正好翻倍——这不是超频，是把 NVIDIA 在驱动/�
 
 每一个都要算 .text 段哈希、记入口点、记版本号，写进 profile。找错一个，后面全白干。
 
-【图建议：十六进制编辑器截图 + 终端里一堆 IMG 文件列表】
+![固件 dump](images/hexdump.png)
 
 ## 四、最大的坑：我这颗 CPU 没有核显
 
@@ -86,6 +88,8 @@ FP16/BF16 差不多正好翻倍——这不是超频，是把 NVIDIA 在驱动/�
 这就引出了 AMI 主板一种很微妙的拓扑：nvgop 驱动独占显卡的同时，控制台画面是由 AMI 的 combo splitter 通过一个**聚合 GOP（aggregate GOP）**来显示的。我要做解锁，就得在不动显示的前提下，把 nvgop、EDID、combo splitter、text 这一整条链按指纹精确"解绑"。
 
 原代码里没有这个路径，只能自己写。最后方案是新增了一个 `GU_CONSOLE_AGGREGATE` 拓扑分支，原机的路径原封不动保留，编译时用 `GU_PROFILE_B660M_3070TI` / `GU_PROFILE_B650M_3090FE` 二选一——两条路线共存，互不干扰，这也是后来 PR 能被接受的关键设计。
+
+![控制台拓扑对比](images/topology.png)
 
 ## 五、翻车实录：这几天我重启了几十次
 
@@ -98,7 +102,7 @@ FP16/BF16 差不多正好翻倍——这不是超频，是把 NVIDIA 在驱动/�
 
 这里必须夸一句原作者的设计：**所有失败路径都是 fail-safe**。ChildCount 那个 bug 不是把机器搞挂，而是在 `full-release-recheck` 这一步主动中止、一个寄存器都不写。几十次翻车没有一次是真砖——这就是"改错指纹就拒绝执行"的价值。
 
-【图建议：满屏 UEFI 日志截图，红框标出 FINAL status=0 那一行】
+![UEFI 事务日志](images/uefi-log.png)
 
 ## 六、成的那一刻
 
@@ -141,6 +145,8 @@ FINAL status=0 stage=transaction attempted=1
 这几天最大的收获不是那 45 TFLOPS，而是完整走了一遍"读别人代码 → 逆向固件 → 摸清硬件拓扑 → 写 UEFI 代码 → 真机验证 → 按规范回馈上游"的闭环。
 
 开源项目最迷人的地方就在这：原作者把手术方案开源出来，但每一台新机器都是一台新手术。我刚好是第二例。
+
+![移植流程](images/flow.png)
 
 ---
 

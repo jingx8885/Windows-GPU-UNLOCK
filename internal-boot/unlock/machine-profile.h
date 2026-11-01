@@ -10,10 +10,10 @@
  */
 #pragma once
 
-#if (defined(GU_PROFILE_B650M_3090FE) + defined(GU_PROFILE_B660M_3070TI) + defined(GU_PROFILE_B660M_3090TI) + defined(GU_PROFILE_X870_3090TI) + defined(GU_PROFILE_B660PLUS_3060) + defined(GU_PROFILE_LOCAL) + defined(GU_PROFILE_H610M_3060) + defined(GU_PROFILE_PROBE_H610M_3060) + defined(GU_PROFILE_B660M_DUAL)) > 1
+#if (defined(GU_PROFILE_B650M_3090FE) + defined(GU_PROFILE_B660M_3070TI) + defined(GU_PROFILE_B660M_3090TI) + defined(GU_PROFILE_X870_3090TI) + defined(GU_PROFILE_B660PLUS_3060) + defined(GU_PROFILE_LOCAL) + defined(GU_PROFILE_H610M_3060) + defined(GU_PROFILE_PROBE_H610M_3060) + defined(GU_PROFILE_B660M_DUAL) + defined(GU_PROFILE_B660M_DUAL_3090TI)) > 1
 #error Select exactly one machine profile
 #endif
-#if !defined(GU_PROFILE_B650M_3090FE) && !defined(GU_PROFILE_B660M_3070TI) && !defined(GU_PROFILE_B660M_3090TI) && !defined(GU_PROFILE_X870_3090TI) && !defined(GU_PROFILE_B660PLUS_3060) && !defined(GU_PROFILE_LOCAL) && !defined(GU_PROFILE_H610M_3060) && !defined(GU_PROFILE_PROBE_H610M_3060) && !defined(GU_PROFILE_B660M_DUAL)
+#if !defined(GU_PROFILE_B650M_3090FE) && !defined(GU_PROFILE_B660M_3070TI) && !defined(GU_PROFILE_B660M_3090TI) && !defined(GU_PROFILE_X870_3090TI) && !defined(GU_PROFILE_B660PLUS_3060) && !defined(GU_PROFILE_LOCAL) && !defined(GU_PROFILE_H610M_3060) && !defined(GU_PROFILE_PROBE_H610M_3060) && !defined(GU_PROFILE_B660M_DUAL) && !defined(GU_PROFILE_B660M_DUAL_3090TI)
 #define GU_PROFILE_B650M_3090FE 1
 #endif
 
@@ -33,7 +33,7 @@
  * (aggregate GOP + text-out driver chain; verified on AMI boards without a
  * second display GPU). 0 = nvgop owns the console GOP on the target directly
  * (original verified B650M headless topology). */
-#if defined(GU_PROFILE_B660M_3070TI) || defined(GU_PROFILE_B660M_3090TI) || defined(GU_PROFILE_B660PLUS_3060) || defined(GU_PROFILE_B660M_DUAL)
+#if defined(GU_PROFILE_B660M_3070TI) || defined(GU_PROFILE_B660M_3090TI) || defined(GU_PROFILE_B660PLUS_3060) || defined(GU_PROFILE_B660M_DUAL) || defined(GU_PROFILE_B660M_DUAL_3090TI)
 #define GU_CONSOLE_AGGREGATE 1
 #else
 #define GU_CONSOLE_AGGREGATE 0
@@ -195,7 +195,7 @@
 #define GU_NVGOP_TEXT_BYTES 0x20d33U
 #define GU_NVGOP_TEXT_SHA256 "615b37a708b1894e18d7fa60cfcdacaa4d8b598863a10b8103d231a595847b2b"
 
-#elif defined(GU_PROFILE_B660M_3090TI) || defined(GU_PROFILE_B660M_DUAL)
+#elif defined(GU_PROFILE_B660M_3090TI) || defined(GU_PROFILE_B660M_DUAL) || defined(GU_PROFILE_B660M_DUAL_3090TI)
 
 /* ASUSTeK TUF GAMING B660M-E D4 BIOS 4003, i7-12700F (no iGPU),
  * Colorful RTX 3090 Ti 24GB (GA102, 10de:2203, subsystem 1301:7377):
@@ -205,7 +205,9 @@
  * probe capture DIAG03.TXT / PROM.BIN / IMG44.BIN (2026-10-27): the card
  * reports 0x5ff4 MiB usable like the X870 GA102 sibling, not the 3070
  * Ti 0x2000. Root port and the display device path are unchanged. */
-#if defined(GU_PROFILE_B660M_DUAL)
+#if defined(GU_PROFILE_B660M_DUAL_3090TI)
+#define GU_PROFILE_NAME "ASUS-TUF-GAMING-B660M-E-D4-4003-DUAL-3090TI"
+#elif defined(GU_PROFILE_B660M_DUAL)
 #define GU_PROFILE_NAME "ASUS-TUF-GAMING-B660M-E-D4-4003-DUAL-RTX"
 #else
 #define GU_PROFILE_NAME "ASUS-TUF-GAMING-B660M-E-D4-4003-RTX3090TI"
@@ -379,7 +381,16 @@
  * wherever the firmware assigned them (any segment/bus), and the console card
  * is unlocked last. BAR0, PROM hash, chip ID and VRAM size stay exact per
  * entry; none are user-editable. */
-#if defined(GU_PROFILE_B660M_DUAL)
+#if defined(GU_PROFILE_B660M_DUAL_3090TI)
+/* Two identical Colorful RTX 3090 Ti cards. Enumeration still resolves each
+   by PCI ID; the console owner unlocks last. */
+#define GU_MULTI_TARGET 1
+#define GU_CARD_TABLE \
+  {0x220310deU,0x130a7377U,0xb72000a1U,0x5ff4U,"22b77e844a215bf52d745e0b10c6698ec3d9479f8350e833247bd5d77430bf44","B660M-RTX3090TI-A-2203"},\
+  {0x220310deU,0x130a7377U,0xb72000a1U,0x5ff4U,"22b77e844a215bf52d745e0b10c6698ec3d9479f8350e833247bd5d77430bf44","B660M-RTX3090TI-B-2203"}
+#define GU_MAX_TARGETS 4
+#define GU_PROFILE_NAME "ASUS-TUF-GAMING-B660M-E-D4-4003-DUAL-3090TI"
+#elif defined(GU_PROFILE_B660M_DUAL)
 #define GU_MULTI_TARGET 1
 #define GU_CARD_TABLE \
   {0x220310deU,0x13017377U,0xb72000a1U,0x5ff4U,"22b77e844a215bf52d745e0b10c6698ec3d9479f8350e833247bd5d77430bf44","B660M-RTX3090TI-2203"},\

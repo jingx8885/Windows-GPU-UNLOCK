@@ -524,10 +524,44 @@ static EFI_STATUS AmdOnly(VOID) {
   EFI_STATUS s=bs->LocateHandleBuffer(ByProtocol,&GopGuid,NULL,&count,&handles);
   if(s==EFI_NOT_FOUND && !count && !handles)return EFI_SUCCESS;
 #if GU_CONSOLE_AGGREGATE
-  /* The aggregate console GOP may already be gone; zero or one pathless
-     zero-FB GOP is the only tolerated survivor. */
-  if(s!=EFI_SUCCESS || !handles || count>1){if(handles)bs->FreePool(handles);return EFI_UNSUPPORTED;}
-  EFI_GRAPHICS_OUTPUT_PROTOCOL *gop=NULL;EFI_DEVICE_PATH_PROTOCOL *path=NULL;
+  /* The aggregate console GOP may already be gone. On multi-GPU profiles the
+     non-console reviewed cards keep their own physical GOP children; the only
+     tolerated survivors are those NVIDIA children plus zero or one pathless
+     zero-FB aggregate remnant. */
+  if(s!=EFI_SUCCESS || !handles || count>(GU_MULTI_TARGET?GU_MAX_TARGETS:1)){if(handles)bs->FreePool(handles);return EFI_UNSUPPORTED;}
+  EFI_GRAPHICS_OUTPUT_PROTOCOL *gop=NULL;
+#if !GU_MULTI_TARGET
+  EFI_DEVICE_PATH_PROTOCOL *path=NULL;
+#endif
+#if GU_MULTI_TARGET
+  UINTN aggIndex=(UINTN)-1;
+  for(UINTN i=0;i<count;i++) {
+    EFI_DEVICE_PATH_PROTOCOL *dp=NULL;
+    EFI_STATUS ps=Interface(bs,handles[i],&PathGuid,(VOID **)&dp);
+    if(ps==EFI_UNSUPPORTED || ps==EFI_NOT_FOUND || !dp) {
+      if(aggIndex!=(UINTN)-1){if(handles)bs->FreePool(handles);return EFI_UNSUPPORTED;}
+      aggIndex=i;
+      continue;
+    }
+    /* A surviving physical GOP child must be an NVIDIA display child on a
+       non-console root port (the second reviewed card). Anything else stops. */
+    static const UINT8 acpiPrefix[16]={2,1,12,0,0xd0,0x41,3,10,0,0,0,0,1,1,6,0};
+    UINTN pb=0;const UINT8 *raw=(const UINT8 *)dp;
+    if(!(GuInspectPath(dp,NULL,&pb,NULL,NULL) && pb==36 && Bytes(raw,acpiPrefix,16) &&
+         raw[16]==0 && raw[17]!=0 && raw[17]!=GU_ROOT_PORT_DEVICE &&
+         raw[18]==1 && raw[19]==1 && raw[20]==6 && raw[21]==0))
+      {if(handles)bs->FreePool(handles);return EFI_UNSUPPORTED;}
+  }
+  if(aggIndex==(UINTN)-1){if(handles)bs->FreePool(handles);return EFI_SUCCESS;}
+  s=Interface(bs,handles[aggIndex],&GopGuid,(VOID **)&gop);
+  if(s==EFI_SUCCESS && (!gop->Mode || gop->Mode->FrameBufferBase || gop->Mode->FrameBufferSize))s=EFI_UNSUPPORTED;
+  if(s==EFI_SUCCESS) {
+    EFI_HANDLE agent=NULL;
+    if(handles[aggIndex]!=p->Agg)s=EFI_UNSUPPORTED;
+    else s=AggGopAgent(bs,handles[aggIndex],&agent);
+    if(s==EFI_SUCCESS && agent && agent!=p->GfxAgent)s=EFI_UNSUPPORTED;
+  }
+#else
   s=Interface(bs,handles[0],&GopGuid,(VOID **)&gop);
   if(s==EFI_SUCCESS && (!gop->Mode || gop->Mode->FrameBufferBase || gop->Mode->FrameBufferSize))s=EFI_UNSUPPORTED;
   if(s==EFI_SUCCESS){EFI_STATUS ps=Interface(bs,handles[0],&PathGuid,(VOID **)&path);if(!((ps==EFI_UNSUPPORTED || ps==EFI_NOT_FOUND) && !path))s=EFI_UNSUPPORTED;}
@@ -537,6 +571,7 @@ static EFI_STATUS AmdOnly(VOID) {
     else{s=AggGopAgent(bs,handles[0],&agent);}
     if(s==EFI_SUCCESS && agent && agent!=p->GfxAgent)s=EFI_UNSUPPORTED;
   }
+#endif
 #else
   if(s!=EFI_SUCCESS || !handles || count!=1){if(handles)bs->FreePool(handles);return EFI_UNSUPPORTED;}
   EFI_GRAPHICS_OUTPUT_PROTOCOL *gop=NULL;EFI_DEVICE_PATH_PROTOCOL *path=NULL;

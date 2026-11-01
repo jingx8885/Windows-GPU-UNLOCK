@@ -196,7 +196,7 @@ static EFI_STATUS Displays(EFI_SYSTEM_TABLE *t,PLAN *p,BOOLEAN first) {
   EFI_STATUS s=bs->LocateHandleBuffer(ByProtocol,&GopGuid,NULL,&count,&handles);
   if(s==EFI_SUCCESS && (!handles ||
 #ifdef GU_SINGLE_RTX_CONSOLE
-     count<1 || count>2
+     count<1 || count>(GU_MULTI_TARGET?4:2)
 #else
      count<2 || count>3
 #endif
@@ -222,6 +222,19 @@ static EFI_STATUS Displays(EFI_SYSTEM_TABLE *t,PLAN *p,BOOLEAN first) {
     if((ps==EFI_UNSUPPORTED || ps==EFI_NOT_FOUND) && !path && handles[i]==t->ConsoleOutHandle && !gop->Mode->FrameBufferBase && !gop->Mode->FrameBufferSize)continue;
 #endif
     if(ps!=EFI_SUCCESS || !path){s=EFI_UNSUPPORTED;break;}
+#if defined(GU_SINGLE_RTX_CONSOLE) && GU_MULTI_TARGET
+    /* A second reviewed NVIDIA GPU also produces a physical GOP child. It is
+       not the console card: keep the exact display-route shape but require a
+       different PCI root port so it can never be confused with the target. */
+    {
+      static const UINT8 acpiPrefix[16]={2,1,12,0,0xd0,0x41,3,10,0,0,0,0,1,1,6,0};
+      UINTN pathBytes=0;const UINT8 *raw=(const UINT8 *)path;
+      if(GuInspectPath(path,NULL,&pathBytes,NULL,NULL) && pathBytes==36 &&
+         Bytes(raw,acpiPrefix,sizeof(acpiPrefix)) &&
+         raw[16]==0 && raw[17]!=0 && raw[17]!=GU_ROOT_PORT_DEVICE &&
+         raw[18]==1 && raw[19]==1 && raw[20]==6 && raw[21]==0)continue;
+    }
+#endif
     EFI_GRAPHICS_OUTPUT_PROTOCOL_MODE *m=gop->Mode;
     if(!m->Info || m->SizeOfInfo<sizeof(*m->Info) || !m->FrameBufferBase || !m->FrameBufferSize || m->Mode>=m->MaxMode ||
        m->Info->PixelFormat>PixelBlueGreenRedReserved8BitPerColor || !m->Info->HorizontalResolution || !m->Info->VerticalResolution ||
